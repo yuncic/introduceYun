@@ -10,7 +10,7 @@
 <img width="901" alt="스킬 블럭" src="img/readme3.png">
 
 ## Card List
-<img width="994" alt="카드 리스트" src="img/readme4.png">
+<img width="994" alt="카드 리스트" src="img/reeadme4.png">
 
 ## Card List's prev, next button with js
 <img width="1043" alt="카드 리스트 오른쪽 끝" src="img/readme5.png">
