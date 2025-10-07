@@ -20,15 +20,19 @@
             border: 1px solid white;
             max-width: 100%;
             max-height: 100vh;
+            position: relative;
+            z-index: 1;
         }
         #mobileControls {
-            position: absolute;
+            position: fixed;
             bottom: 10px;
             display: none;
             width: 100%;
             justify-content: space-around;
-            z-index: 10;
+            z-index: 9999;
             pointer-events: auto;
+            left: 0;
+            right: 0;
         }
         .mobileButton {
             background-color: rgba(255, 255, 255, 0.3);
@@ -37,6 +41,14 @@
             padding: 15px;
             font-size: 20px;
             border-radius: 5px;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+            cursor: pointer;
+        }
+        .mobileButton.active {
+            background-color: rgba(255, 255, 255, 0.5);
         }
     </style>
 </head>
@@ -311,6 +323,42 @@
                                         if c:
                                             self.ctx.fillRect(offset_x + j * cell_size, offset_y + i * cell_size, cell_size - 2, cell_size - 2)
 
+                            # 사이드 버튼 영역 (다음 블록 하단)
+                            btn_area_x = GAME_WIDTH + BLOCK_SIZE
+                            btn_area_y = BLOCK_SIZE * 11
+                            btn_w = BLOCK_SIZE * 5  # 크기 축소
+                            btn_h = BLOCK_SIZE * 1.2
+                            btn_gap = BLOCK_SIZE * 0.6  # 간격 확실히 띄우기
+
+                            # 다시 시작 버튼
+                            self.restart_btn_bounds = (btn_area_x, btn_area_y, btn_w, btn_h)  # (x, y, w, h)
+                            self.ctx.fillStyle = '#2e7d32'
+                            self.ctx.fillRect(btn_area_x, btn_area_y, btn_w, btn_h)
+                            self.ctx.fillStyle = 'white'
+                            self.ctx.font = f'bold {BLOCK_SIZE*0.7}px Arial'
+                            prev_align = self.ctx.textAlign
+                            prev_baseline = self.ctx.textBaseline if hasattr(self.ctx, 'textBaseline') else 'alphabetic'
+                            self.ctx.textAlign = 'center'
+                            try:
+                                self.ctx.textBaseline = 'middle'
+                            except:
+                                pass
+                            self.ctx.fillText('다시 시작', btn_area_x + btn_w/2, btn_area_y + btn_h/2)
+
+                            # 나가기 버튼
+                            btn2_y = btn_area_y + btn_h + btn_gap
+                            self.exit_btn_bounds = (btn_area_x, btn2_y, btn_w, btn_h)  # (x, y, w, h)
+                            self.ctx.fillStyle = '#c62828'
+                            self.ctx.fillRect(btn_area_x, btn2_y, btn_w, btn_h)
+                            self.ctx.fillStyle = 'white'
+                            self.ctx.font = f'bold {BLOCK_SIZE*0.7}px Arial'
+                            self.ctx.fillText('나가기', btn_area_x + btn_w/2, btn2_y + btn_h/2)
+                            self.ctx.textAlign = prev_align
+                            try:
+                                self.ctx.textBaseline = prev_baseline
+                            except:
+                                pass
+
                     def draw_start_screen(self):
                         self.ctx.fillStyle = 'black'
                         self.ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -431,6 +479,51 @@
                         if SCREEN_WIDTH // 2 - BLOCK_SIZE * 3 < event.offsetX < SCREEN_WIDTH // 2 + BLOCK_SIZE * 3 and SCREEN_HEIGHT // 2 + BLOCK_SIZE * 2 < event.offsetY < SCREEN_HEIGHT // 2 + BLOCK_SIZE * 3.5:
                             game.reset_game()
                             game.start_game()
+                    else:
+                        # 사이드 버튼 클릭 판정
+                        x = event.offsetX
+                        y = event.offsetY
+                        def in_bounds(bounds):
+                            (bx, by, bw, bh) = bounds  # (x, y, w, h)
+                            return bx <= x <= bx + bw and by <= y <= by + bh
+                        if hasattr(game, 'restart_btn_bounds') and in_bounds(game.restart_btn_bounds):
+                            game.reset_game()
+                            game.start_game()
+                            return
+                        if hasattr(game, 'exit_btn_bounds') and in_bounds(game.exit_btn_bounds):
+                            game.reset_game()
+                            return
+
+                # 모바일: 시작/게임오버 화면에서의 터치 입력을 클릭과 동일하게 처리
+                def handle_canvas_touchstart(event):
+                    try:
+                        event.preventDefault()
+                        event.stopPropagation()
+                    except:
+                        pass
+                    canvas = js.document.getElementById('gameCanvas')
+                    rect = canvas.getBoundingClientRect()
+                    # 첫 번째 터치 포인트 사용 (touches 없으면 changedTouches 사용)
+                    touches = getattr(event, 'touches', None) or getattr(event, 'changedTouches', None)
+                    touch = touches.item(0) if touches and getattr(touches, 'length', 0) > 0 else None
+                    if not touch:
+                        return
+                    # 화면 좌표 -> 캔버스 내부 좌표 보정 (CSS 스케일 대응)
+                    try:
+                        scale_x = canvas.width / rect.width if rect.width else 1
+                        scale_y = canvas.height / rect.height if rect.height else 1
+                    except:
+                        scale_x = 1
+                        scale_y = 1
+                    offset_x = (touch.clientX - rect.left) * scale_x
+                    offset_y = (touch.clientY - rect.top) * scale_y
+
+                    class _E:  # 최소 속성만 가진 간단한 이벤트 객체
+                        def __init__(self, x, y):
+                            self.offsetX = x
+                            self.offsetY = y
+
+                    handle_click(_E(offset_x, offset_y))
 
                 def handle_resize(event):
                     game.resize_canvas()
@@ -452,9 +545,102 @@
                 js.document.addEventListener('keydown', create_proxy(handle_keydown))
                 js.document.addEventListener('keyup', create_proxy(handle_keyup))
                 js.document.getElementById('gameCanvas').addEventListener('click', create_proxy(handle_click))
+                js.document.getElementById('gameCanvas').addEventListener('touchstart', create_proxy(handle_canvas_touchstart), { 'passive': False })
                 js.window.addEventListener('resize', create_proxy(handle_resize))
-                js.document.getElementById('mobileControls').addEventListener('touchstart', create_proxy(handle_mobile_control))
-                js.document.getElementById('mobileControls').addEventListener('touchend', create_proxy(lambda event: setattr(game, 'fast_fall', False)))
+                # 모바일 버튼: 버튼별 터치/클릭 리스너 등록 (passive: False로 preventDefault 가능)
+                # 프록시 보관을 위한 전역 리스트
+                _proxies = []
+
+                def bind_mobile_button(btn_id, on_press, on_release=None):
+                    btn = js.document.getElementById(btn_id)
+
+                    def handle_touchstart(event):
+                        try:
+                            event.preventDefault()
+                            event.stopPropagation()
+                        except:
+                            pass
+                        try:
+                            js.console.log(f'{btn_id} touchstart')
+                            btn.classList.add('active')
+                        except:
+                            pass
+                        on_press()
+
+                    def handle_touchend(event):
+                        try:
+                            event.preventDefault()
+                            event.stopPropagation()
+                        except:
+                            pass
+                        try:
+                            js.console.log(f'{btn_id} touchend')
+                            btn.classList.remove('active')
+                        except:
+                            pass
+                        if on_release:
+                            on_release()
+
+                    def handle_touchcancel(event):
+                        try:
+                            event.preventDefault()
+                            event.stopPropagation()
+                        except:
+                            pass
+                        try:
+                            js.console.log(f'{btn_id} touchcancel')
+                            btn.classList.remove('active')
+                        except:
+                            pass
+                        if on_release:
+                            on_release()
+
+                    def handle_click(event):
+                        try:
+                            event.preventDefault()
+                            event.stopPropagation()
+                        except:
+                            pass
+                        try:
+                            js.console.log(f'{btn_id} click')
+                        except:
+                            pass
+                        on_press()
+
+                    p_ts = create_proxy(handle_touchstart)
+                    p_te = create_proxy(handle_touchend)
+                    p_tc = create_proxy(handle_touchcancel)
+                    p_clk = create_proxy(handle_click)
+                    p_pd = create_proxy(handle_touchstart)
+                    p_pu = create_proxy(handle_touchend)
+                    p_pc = create_proxy(handle_touchcancel)
+                    _proxies.extend([p_ts,p_te,p_tc,p_clk,p_pd,p_pu,p_pc])
+
+                    btn.addEventListener('touchstart', p_ts, { 'passive': False })
+                    btn.addEventListener('touchend', p_te, { 'passive': False })
+                    btn.addEventListener('touchcancel', p_tc, { 'passive': False })
+                    btn.addEventListener('click', p_clk)
+                    btn.addEventListener('pointerdown', p_pd)
+                    btn.addEventListener('pointerup', p_pu)
+                    btn.addEventListener('pointercancel', p_pc)
+
+                bind_mobile_button('leftBtn', lambda: game.move(-1, 0))
+                bind_mobile_button('rightBtn', lambda: game.move(1, 0))
+                bind_mobile_button('rotateBtn', lambda: game.rotate_piece())
+                bind_mobile_button('downBtn', lambda: setattr(game, 'fast_fall', True), lambda: setattr(game, 'fast_fall', False))
+
+                # 컨테이너에서 전파 차단: 모바일 컨트롤이 모든 포인터/터치 이벤트를 캔버스로 넘기지 않도록
+                mobile_controls = js.document.getElementById('mobileControls')
+                def swallow(e):
+                    try:
+                        e.preventDefault()
+                        e.stopPropagation()
+                    except:
+                        pass
+                for evt in ['touchstart','touchend','touchcancel','pointerdown','pointerup','pointercancel','click']:
+                    p = create_proxy(swallow)
+                    _proxies.append(p)
+                    mobile_controls.addEventListener(evt, p, { 'passive': False })
                 js.document.getElementById('exitBtn').addEventListener('click', create_proxy(handle_exit))
 
                 # 터치 이벤트 방지
