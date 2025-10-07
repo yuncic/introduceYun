@@ -238,9 +238,12 @@
                         self.speed_level = min(10, self.score // 20 + 1)
 
                     def rotate_piece(self):
-                        new_shape = list(zip(*self.current_piece["shape"][::-1]))
-                        if self.valid_move({"shape": new_shape, "x": self.current_piece["x"], "y": self.current_piece["y"]}, self.current_piece["x"], self.current_piece["y"]):
-                            self.current_piece["shape"] = new_shape
+                        # 항상 시계 방향(오른쪽) 90도 회전
+                        shape = self.current_piece["shape"]
+                        rotated = [list(row) for row in zip(*shape[::-1])]
+                        candidate = {"shape": rotated, "x": self.current_piece["x"], "y": self.current_piece["y"]}
+                        if self.valid_move(candidate, self.current_piece["x"], self.current_piece["y"]):
+                            self.current_piece["shape"] = rotated
                             self.update_ghost_piece()
 
                     def move(self, dx, dy):
