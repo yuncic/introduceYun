@@ -483,17 +483,27 @@ section{
         display: flex;
         flex-direction: column;
         align-items: center;
+        overflow-x: hidden;
+        width: 100%;
+        padding: 0;
+        margin: 0 auto;
     }
 
     .class-card {
         width: 90%;
+        max-width: 360px;
         margin-bottom: 20px;
+        box-sizing: border-box;
+
     }
 
     /* Footer */
     footer {
         text-align: center;
     }
+     body, html {
+      overflow-x: hidden; /* ✅ 전체적으로 가로 스크롤 막기 */
+  }
 }
 
 footer {
